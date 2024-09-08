@@ -1,7 +1,8 @@
+import CSErrors
+@testable import CSResourceFork
 import Foundation
 import System
 import Testing
-@testable import CSResourceFork
 
 struct Fixture: CustomTestStringConvertible {
     struct ExpectedResource {
@@ -58,9 +59,24 @@ struct Fixture: CustomTestStringConvertible {
     }
 }
 
+struct Options: OptionSet, CustomTestStringConvertible {
+    static let testResourceFork = Options(rawValue: 0x01)
+
+    let rawValue: Int
+
+    var testDescription: String {
+        self.contains(.testResourceFork) ? "rsrc" : "data"
+    }
+}
+
 let fixtures = [
     "basic"
 ].map { Fixture(name: $0) }
+
+let options: [Options] = [
+    [],
+    .testResourceFork
+]
 
 private let bundle: Bundle = {
     class BundleResolver: NSObject {}
@@ -72,23 +88,44 @@ private let fixtureBundle = Bundle(
     url: bundle.url(forResource: "CSResourceFork_CSResourceForkTests", withExtension: "bundle")!
 )!
 
-@Test("Read Fixture", arguments: fixtures)
-func testReadFixture(fixture: Fixture) throws {
-    let resourceFork = try ResourceFork(path: FilePath(fixture.url.path), inResourceFork: false)
+@Test("Read Fixture", arguments: fixtures, options)
+func testReadFixture(fixture: Fixture, options: Options) throws {
+    let resourceFork: ResourceFork
+
+    if options.contains(.testResourceFork) {
+        let tempURL = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        try Data().write(to: tempURL, options: .atomic)
+        try Data(contentsOf: fixture.url).withUnsafeBytes { buf in
+            _ = try callPOSIXFunction(expect: .zero) {
+                setxattr(tempURL.path, "com.apple.ResourceFork", buf.baseAddress, buf.count, 0, 0)
+            }
+        }
+
+        resourceFork = try ResourceFork(path: FilePath(tempURL.path), inResourceFork: true)
+    } else {
+        resourceFork = try ResourceFork(path: FilePath(fixture.url.path), inResourceFork: false)
+    }
 
     try fixture.compare(to: resourceFork)
 }
 
-@Test("Write Fixture", arguments: fixtures)
-func testWriteFixture(fixture: Fixture) throws {
+@Test("Write Fixture", arguments: fixtures, options)
+func testWriteFixture(fixture: Fixture, options: Options) throws {
     let resourceFork = try ResourceFork(path: FilePath(fixture.url.path), inResourceFork: false)
 
     let tempURL = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: tempURL) }
 
-    try resourceFork.write(to: FilePath(tempURL.path), inResourceFork: false)
+    if options.contains(.testResourceFork) {
+        try Data().write(to: tempURL, options: .atomic)
+        try resourceFork.write(to: FilePath(tempURL.path), inResourceFork: true)
+    } else {
+        try resourceFork.write(to: FilePath(tempURL.path), inResourceFork: false)
+    }
 
-    let reloaded = try ResourceFork(path: FilePath(tempURL.path), inResourceFork: false)
+    let reloaded = try ResourceFork(path: FilePath(tempURL.path), inResourceFork: options.contains(.testResourceFork))
 
     try fixture.compare(to: reloaded)
     #expect(reloaded == resourceFork)
