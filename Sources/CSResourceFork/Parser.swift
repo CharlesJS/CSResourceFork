@@ -444,12 +444,8 @@ extension ResourceFork {
                 resourcesByType.values.reduce(0) { $1.reduce($0) { $0 + ($1.value.nameData?.count ?? 0) } }
             )
 
-            if resourcesByType.isEmpty {
-                typeListData.append(contentsOf: [0xff, 0xff])
-            } else {
-                var typeCount = UInt16(resourcesByType.count - 1).bigEndian
-                withUnsafeBytes(of: &typeCount) { typeListData.append(contentsOf: $0) }
-            }
+            var typeCount = UInt16(resourcesByType.count &- 1).bigEndian
+            withUnsafeBytes(of: &typeCount) { typeListData.append(contentsOf: $0) }
 
             for (key: typeCode, value: resources) in resourcesByType {
                 let resCount = resources.count

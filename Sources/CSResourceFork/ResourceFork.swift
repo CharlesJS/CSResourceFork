@@ -29,13 +29,6 @@ public struct ResourceFork: Codable, Hashable, Sendable {
 
     private var resourcesByType: [UInt32 : [Int16 : Resource]] = [:]
 
-    public var resources: [Resource] {
-        self.resourcesByType
-            .sorted { $0.key < $1.key }
-            .flatMap { $0.value.values }
-            .sorted { $0.resourceID < $1.resourceID }
-    }
-
     private var _attributes: Attributes
     public var attributes: Attributes {
         get { self._attributes }
