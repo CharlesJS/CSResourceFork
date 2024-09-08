@@ -444,7 +444,7 @@ extension ResourceFork {
                 resourcesByType.values.reduce(0) { $1.reduce($0) { $0 + ($1.value.nameData?.count ?? 0) } }
             )
 
-            var typeCount = UInt16(resourcesByType.count &- 1).bigEndian
+            var typeCount = UInt16(resourcesByType.isEmpty ? 0xffff : resourcesByType.count &- 1).bigEndian
             withUnsafeBytes(of: &typeCount) { typeListData.append(contentsOf: $0) }
 
             for (key: typeCode, value: resources) in resourcesByType {
