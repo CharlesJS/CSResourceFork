@@ -25,10 +25,8 @@ public struct Resource: Codable, Hashable, Sendable {
     public let typeCode: UInt32
     public var type: String { String(hfsTypeCode: self.typeCode) }
 
-    public internal(set) var resourceID: Int16 {
-        didSet { self.attributes.insert(.isChanged) }
-    }
-    
+    public internal(set) var resourceID: Int16
+
     public var size: Int { self.resourceData.count }
     
     public var name: String? {
@@ -36,34 +34,22 @@ public struct Resource: Codable, Hashable, Sendable {
         set { self.nameData = newValue?.macOSRomanCString(allowLossyConversion: true) }
     }
 
-    internal var nameData: ContiguousArray<UInt8>? {
-        didSet { self.attributes.insert(.isChanged) }
-    }
+    internal var nameData: ContiguousArray<UInt8>?
+    public var resourceData: ContiguousArray<UInt8>
 
-    public var resourceData: ContiguousArray<UInt8> {
-        didSet { self.attributes.insert(.isChanged) }
-    }
+    public var attributes: Attributes
 
-    private var _attributes: Attributes
-    public var attributes: Attributes {
-        get { self._attributes }
-        set {
-            if newValue == self._attributes { return }
-            self._attributes = newValue.union(.isChanged)
-        }
-    }
-    
     internal init(
         typeCode: UInt32,
         resourceID: Int16,
         name: String?,
-        attributes: UInt8 = 0,
+        attributes: Attributes = [],
         resourceData: some Sequence<UInt8>
     ) throws {
         self.typeCode = typeCode
         self.resourceID = resourceID
         self.nameData = name?.macOSRomanCString(allowLossyConversion: true)
-        self._attributes = Attributes(rawValue: attributes).subtracting(.isChanged)
+        self.attributes = attributes
         self.resourceData = ContiguousArray(resourceData)
     }
 }

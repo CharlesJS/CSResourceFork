@@ -29,11 +29,7 @@ public struct ResourceFork: Codable, Hashable, Sendable {
 
     private var resourcesByType: [UInt32 : [Int16 : Resource]] = [:]
 
-    private var _attributes: Attributes
-    public var attributes: Attributes {
-        get { self._attributes }
-        set { self._attributes = newValue.union(.isChanged) }
-    }
+    public var attributes: Attributes
 
     public var size: Int {
         get throws { try Parser.sizeOfResourceFork(resourcesByType: self.resourcesByType) }
@@ -41,7 +37,7 @@ public struct ResourceFork: Codable, Hashable, Sendable {
     
     public init() {
         self.resourcesByType = [:]
-        self._attributes = []
+        self.attributes = []
     }
 
     @available(macOS 11.0, iOS 14.0, macCatalyst 14.0, tvOS 14.0, watchOS 7.0, visionOS 1.0, *)
@@ -73,7 +69,7 @@ public struct ResourceFork: Codable, Hashable, Sendable {
         let parserResult = try Parser.parseResourceFork(fileDescriptor: fileDescriptor, inResourceFork: inResourceFork)
 
         self.resourcesByType = parserResult.resourcesByType
-        self._attributes = parserResult.attributes.subtracting(.isChanged)
+        self.attributes = parserResult.attributes
     }
 
     @available(macOS 11.0, iOS 14.0, macCatalyst 14.0, tvOS 14.0, watchOS 7.0, visionOS 1.0, *)
@@ -193,27 +189,33 @@ public struct ResourceFork: Codable, Hashable, Sendable {
     @discardableResult public mutating func addResource(
         withType type: String,
         resourceID: Int16,
+        attributes: Resource.Attributes = [],
         name: String? = nil,
         resourceData: some Sequence<UInt8> = EmptyCollection()
     ) throws -> Resource {
         guard let typeCode = type.hfsTypeCode else { throw errno(EINVAL) }
 
-        return try self.addResource(withTypeCode: typeCode, resourceID: resourceID, name: name, resourceData: resourceData)
+        return try self.addResource(
+            withTypeCode: typeCode,
+            resourceID: resourceID,
+            attributes: attributes,
+            name: name,
+            resourceData: resourceData
+        )
     }
     
     @discardableResult public mutating func addResource(
         withTypeCode type: UInt32,
         resourceID: Int16,
+        attributes: Resource.Attributes = [],
         name: String? = nil,
         resourceData: some Sequence<UInt8> = EmptyCollection()
     ) throws -> Resource {
-        self._attributes.insert(.isChanged)
-
         let resource = try Resource(
             typeCode: type,
             resourceID: resourceID,
             name: name,
-            attributes: 0,
+            attributes: attributes,
             resourceData: resourceData
         )
 
@@ -236,7 +238,6 @@ public struct ResourceFork: Codable, Hashable, Sendable {
         }
 
         self.resourcesByType[typeCode]?[resourceID] = nil
-        self._attributes.insert(.isChanged)
     }
 
     public mutating func removeResource(_ resource: Resource) throws {
@@ -257,6 +258,5 @@ public struct ResourceFork: Codable, Hashable, Sendable {
         resource.resourceID = newID
         self.resourcesByType[resource.typeCode]![newID] = resource
         self.resourcesByType[resource.typeCode]![resource.resourceID] = nil
-        self._attributes.insert(.isChanged)
     }
 }

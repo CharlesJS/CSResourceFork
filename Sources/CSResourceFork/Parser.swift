@@ -256,7 +256,7 @@ extension ResourceFork {
                     typeCode: typeCode,
                     resourceID: id,
                     name: resName,
-                    attributes: resAttrs,
+                    attributes: Resource.Attributes(rawValue: resAttrs),
                     resourceData: resData
                 )
             }

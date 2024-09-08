@@ -67,6 +67,7 @@ struct Options: OptionSet, CustomTestStringConvertible {
     static let testFileDescriptor = Options(rawValue: 0x04)
     static let testRawFileDescriptor = Options(rawValue: 0x08)
     static let testFileAlreadyExists = Options(rawValue: 0x10)
+    static let testRawTypeCodes = Options(rawValue: 0x20)
 
     let rawValue: Int
 
@@ -76,6 +77,7 @@ struct Options: OptionSet, CustomTestStringConvertible {
             self.contains(.testRawStringPaths) ? "raw" : nil,
             self.contains(.testFileDescriptor) ? "fd" : nil,
             self.contains(.testRawFileDescriptor) ? "raw fd" : nil,
+            self.contains(.testRawTypeCodes) ? "raw types" : nil,
             self.contains(.testFileAlreadyExists) ? "exists" : nil,
         ].compactMap(\.self).joined(separator: ", ")
     }
@@ -184,6 +186,75 @@ func testWriteFixture(fixture: Fixture, options: Options) throws {
         }
     } else {
         resourceFork = try ResourceFork(path: FilePath(fixture.url.path), inResourceFork: false)
+    }
+
+    let tempURL = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: tempURL) }
+
+    if options.contains(.testFileAlreadyExists) {
+        try Data().write(to: tempURL, options: .atomic)
+    }
+
+    if options.contains(.testRawStringPaths) {
+        try resourceFork.write(toPath: tempURL.path, inResourceFork: options.contains(.testResourceFork))
+    } else if options.contains(.testFileDescriptor) {
+        let file = try FileDescriptor.open(FilePath(tempURL.path), .writeOnly)
+        defer { try? file.close() }
+
+        if options.contains(.testRawFileDescriptor) {
+            try resourceFork.write(toFileDescriptor: file.rawValue, inResourceFork: options.contains(.testResourceFork))
+        } else {
+            try resourceFork.write(to: file, inResourceFork: options.contains(.testResourceFork))
+        }
+    } else {
+        try resourceFork.write(to: FilePath(tempURL.path), inResourceFork: options.contains(.testResourceFork))
+    }
+
+    let reloaded = try ResourceFork(path: FilePath(tempURL.path), inResourceFork: options.contains(.testResourceFork))
+
+    try fixture.compare(to: reloaded)
+    #expect(reloaded == resourceFork)
+}
+
+@Test("Write from Scratch", arguments: fixtures, [
+    [],
+    .testFileAlreadyExists,
+    .testRawStringPaths,
+    .testRawTypeCodes,
+    [.testRawStringPaths, .testFileAlreadyExists],
+    [.testFileDescriptor, .testFileAlreadyExists],
+    [.testFileDescriptor, .testRawFileDescriptor, .testFileAlreadyExists],
+    .testResourceFork,
+    [.testResourceFork, .testRawTypeCodes],
+    [.testResourceFork, .testFileAlreadyExists],
+    [.testResourceFork, .testFileDescriptor, .testFileAlreadyExists],
+    [.testResourceFork, .testFileDescriptor, .testRawFileDescriptor, .testFileAlreadyExists],
+    [.testResourceFork, .testRawStringPaths],
+] as [Options])
+func testWriteFromScratch(fixture: Fixture, options: Options) throws {
+    var resourceFork = ResourceFork()
+
+    resourceFork.attributes = fixture.forkAttributes
+    for (type, resources) in fixture.expectedResources {
+        for spec in resources {
+            if options.contains(.testRawTypeCodes) {
+                try resourceFork.addResource(
+                    withTypeCode: type.hfsTypeCode!,
+                    resourceID: spec.id,
+                    attributes: spec.attributes,
+                    name: spec.name,
+                    resourceData: spec.data
+                )
+            } else {
+                try resourceFork.addResource(
+                    withType: type,
+                    resourceID: spec.id,
+                    attributes: spec.attributes,
+                    name: spec.name,
+                    resourceData: spec.data
+                )
+            }
+        }
     }
 
     let tempURL = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
