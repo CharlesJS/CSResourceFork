@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "2B8AC441-EC4E-4960-99B8-DE8CAB11659B",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "CSResourceForkTests",
+        "name" : "CSResourceForkTests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Attributes</key>
+	<integer>256</integer>
+	<key>Resources</key>
+	<dict>
+		<key>TEXT</key>
+		<array>
+			<dict>
+				<key>Attributes</key>
+				<integer>32</integer>
+				<key>ID</key>
+				<integer>128</integer>
+				<key>Data</key>
+				<string>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</string>
+				<key>Name</key>
+				<string>LoremIpsum</string>
+			</dict>
+			<dict>
+				<key>Attributes</key>
+				<integer>72</integer>
+				<key>ID</key>
+				<integer>-200</integer>
+				<key>Data</key>
+				<string>The quick brown fox jumps over the lazy dog.</string>
+				<key>Name</key>
+				<string>QuickBrownFox</string>
+			</dict>
+		</array>
+		<key>styl</key>
+		<array>
+			<dict>
+				<key>ID</key>
+				<integer>128</integer>
+				<key>Data</key>
+				<data>AAEAAAAAAA4ACQAUAAAADAAAAAAAAA==</data>
+				<key>Name</key>
+				<string>lorem ipsum styling</string>
+			</dict>
+		</array>
+		<key>STR </key>
+		<array>
+			<dict>
+				<key>ID</key>
+				<integer>128</integer>
+				<key>Data</key>
+				<data>A0Zvb6vN7w==</data>
+				<key>Name</key>
+				<string>foo</string>
+			</dict>
+			<dict>
+				<key>ID</key>
+				<integer>3000</integer>
+				<key>Data</key>
+				<data>A0JhchI0Vg==</data>
+			</dict>
+		</array>
+	</dict>
+</dict>
+</plist>
