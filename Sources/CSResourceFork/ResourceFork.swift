@@ -240,10 +240,6 @@ public struct ResourceFork: Codable, Hashable, Sendable {
         self.resourcesByType[typeCode]?[resourceID] = nil
     }
 
-    public mutating func removeResource(_ resource: Resource) throws {
-        try self.removeResource(withTypeCode: resource.typeCode, resourceID: resource.resourceID)
-    }
-    
     public mutating func changeID(ofResourceWithType type: String, resourceID: Int16, to newID: Int16) throws {
         var resource = try self.resource(withType: type, resourceID: resourceID)
         try self.changeID(ofResource: &resource, to: newID)
@@ -254,9 +250,11 @@ public struct ResourceFork: Codable, Hashable, Sendable {
         try self.changeID(ofResource: &resource, to: newID)
     }
 
-    public mutating func changeID(ofResource resource: inout Resource, to newID: Int16) throws {
+    private mutating func changeID(ofResource resource: inout Resource, to newID: Int16) throws {
+        let oldID = resource.resourceID
+
         resource.resourceID = newID
         self.resourcesByType[resource.typeCode]![newID] = resource
-        self.resourcesByType[resource.typeCode]![resource.resourceID] = nil
+        self.resourcesByType[resource.typeCode]![oldID] = nil
     }
 }

@@ -284,3 +284,83 @@ func testWriteFromScratch(fixture: Fixture, options: Options) throws {
     try fixture.compare(to: reloaded)
     #expect(reloaded == resourceFork)
 }
+
+@Test("Mutations")
+func testMutations() throws {
+    var resourceFork = ResourceFork()
+    let type = "foo "
+    let typeCode = type.hfsTypeCode!
+
+    #expect(resourceFork.resources(withType: type).isEmpty)
+    #expect(resourceFork.resources(withTypeCode: typeCode).isEmpty)
+
+    #expect(throws: ResourceFork.Error.resourceNotFound(type: type, id: 128)) {
+        try resourceFork.resource(withType: type, resourceID: 128)
+    }
+
+    try resourceFork.addResource(withType: type, resourceID: 128, resourceData: [1, 2, 3])
+    #expect(resourceFork.resources(withType: type).count == 1)
+    #expect(try resourceFork.resource(withType: type, resourceID: 128).resourceData == [1, 2, 3])
+
+    try resourceFork.addResource(withType: type, resourceID: 129, resourceData: [2, 3, 4, 5])
+    #expect(resourceFork.resources(withType: type).count == 2)
+    #expect(try resourceFork.resource(withType: type, resourceID: 128).resourceData == [1, 2, 3])
+    #expect(try resourceFork.resource(withType: type, resourceID: 129).resourceData == [2, 3, 4, 5])
+
+    try resourceFork.addResource(withType: type, resourceID: 128, resourceData: [9, 8, 7])
+    #expect(resourceFork.resources(withType: type).count == 2)
+    #expect(try resourceFork.resource(withType: type, resourceID: 128).resourceData == [9, 8, 7])
+    #expect(try resourceFork.resource(withType: type, resourceID: 129).resourceData == [2, 3, 4, 5])
+
+    try resourceFork.changeID(ofResourceWithType: type, resourceID: 128, to: 130)
+    #expect(resourceFork.resources(withType: type).count == 2)
+    #expect(throws: ResourceFork.Error.resourceNotFound(type: type, id: 128)) {
+        try resourceFork.resource(withType: type, resourceID: 128)
+    }
+    #expect(try resourceFork.resource(withType: type, resourceID: 129).resourceData == [2, 3, 4, 5])
+    #expect(try resourceFork.resource(withType: type, resourceID: 130).resourceData == [9, 8, 7])
+
+    try resourceFork.changeID(ofResourceWithTypeCode: typeCode, resourceID: 129, to: 131)
+    #expect(resourceFork.resources(withType: type).count == 2)
+    #expect(throws: ResourceFork.Error.resourceNotFound(type: type, id: 129)) {
+        try resourceFork.resource(withTypeCode: typeCode, resourceID: 129)
+    }
+    #expect(try resourceFork.resource(withType: type, resourceID: 130).resourceData == [9, 8, 7])
+    #expect(try resourceFork.resource(withType: type, resourceID: 131).resourceData == [2, 3, 4, 5])
+
+    try resourceFork.removeResource(withType: type, resourceID: 130)
+    #expect(resourceFork.resources(withType: type).count == 1)
+    #expect(try resourceFork.resource(withType: type, resourceID: 131).resourceData == [2, 3, 4, 5])
+
+    #expect(throws: ResourceFork.Error.resourceNotFound(type: type, id: 130)) {
+        try resourceFork.removeResource(withType: type, resourceID: 130)
+    }
+
+    #expect(throws: ResourceFork.Error.resourceNotFound(type: type, id: 130)) {
+        try resourceFork.removeResource(withTypeCode: typeCode, resourceID: 130)
+    }
+
+    try resourceFork.removeResource(withTypeCode: typeCode, resourceID: 131)
+    #expect(resourceFork.resources(withType: type).count == 0)
+}
+
+@Test("Invalid resource types")
+func testInvalidResourceTypes() throws {
+    var resourceFork = ResourceFork()
+    let badType = "👎👎👎👎"
+
+    #expect(badType.hfsTypeCode == nil)
+
+    #expect(resourceFork.resources(withType: badType).isEmpty)
+    #expect(throws: ResourceFork.Error.resourceNotFound(type: badType, id: 128)) {
+        try resourceFork.resource(withType: badType, resourceID: 128)
+    }
+
+    #expect(throws: Errno.invalidArgument) {
+        try resourceFork.addResource(withType: badType, resourceID: 128)
+    }
+
+    #expect(throws: Errno.invalidArgument) {
+        try resourceFork.removeResource(withType: badType, resourceID: 128)
+    }
+}

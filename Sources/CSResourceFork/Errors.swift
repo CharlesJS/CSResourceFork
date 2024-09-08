@@ -6,7 +6,7 @@
 //
 
 extension ResourceFork {
-    public enum Error: Swift.Error {
+    public enum Error: Swift.Error, Hashable {
         case resourceNotFound(type: String, id: Int16)
         case corruptResourceFork
         case resourceTooLarge(type: String, id: Int16, size: Int)
