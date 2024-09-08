@@ -396,10 +396,9 @@ extension ResourceFork {
             let mapHeaderLength =
                 2 /* resource fork attributes */ +
                 2 /* offset from beginning of map to resource type list */ +
-                2 /* offset from beginning of map to resource name list */ +
-                2 /* number of types in the map minus 1 */
-            
-            let typeListOffset = mapHeaderLength
+                2 /* offset from beginning of map to resource name list */
+
+            let typeListOffset = reservedHeaderSpace + mapHeaderLength
             let nameListOffset = typeListOffset + typeListData.count + refListData.count
             
             guard nameListOffset <= Int(Int16.max) else {
@@ -417,7 +416,6 @@ extension ResourceFork {
                     $0[0] = attributes.subtracting(.isChanged).rawValue.bigEndian
                     $0[1] = UInt16(typeListOffset).bigEndian
                     $0[2] = UInt16(nameListOffset).bigEndian
-                    $0[3] = resourcesByType.isEmpty ? 0xffff : UInt16(typeCount - 1).bigEndian
                 }
 
                 count = mapHeaderLength
@@ -438,13 +436,20 @@ extension ResourceFork {
             var refListData: ContiguousArray<UInt8> = []
             var nameListData: ContiguousArray<UInt8> = []
 
-            let refListOffset = Int(resourcesByType.count) * 8
+            let refListOffset = 2 + Int(resourcesByType.count) * 8
 
             typeListData.reserveCapacity(refListOffset)
             refListData.reserveCapacity(12 * resourcesByType.values.reduce(0) { $0 + $1.count })
             nameListData.reserveCapacity(
                 resourcesByType.values.reduce(0) { $1.reduce($0) { $0 + ($1.value.nameData?.count ?? 0) } }
             )
+
+            if resourcesByType.isEmpty {
+                typeListData.append(contentsOf: [0xff, 0xff])
+            } else {
+                var typeCount = UInt16(resourcesByType.count - 1).bigEndian
+                withUnsafeBytes(of: &typeCount) { typeListData.append(contentsOf: $0) }
+            }
 
             for (key: typeCode, value: resources) in resourcesByType {
                 let resCount = resources.count

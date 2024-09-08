@@ -11,8 +11,8 @@ import System
 import Darwin
 #endif
 
-public struct ResourceFork: Codable {
-    public struct Attributes: OptionSet, Codable, Sendable {
+public struct ResourceFork: Codable, Hashable, Sendable {
+    public struct Attributes: OptionSet, Codable, Hashable, Sendable {
         public static let isChanged                          = Attributes(rawValue: 0x0020)
         public static let shouldCompact                      = Attributes(rawValue: 0x0040)
         public static let isReadOnly                         = Attributes(rawValue: 0x0080)

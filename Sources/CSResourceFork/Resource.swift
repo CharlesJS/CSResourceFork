@@ -6,7 +6,7 @@
 
 import HFSTypeConversion
 
-public struct Resource: Codable, Hashable {
+public struct Resource: Codable, Hashable, Sendable {
     internal static let maxSize = Int(Int32.max)
 
     public struct Attributes: OptionSet, Codable, Hashable, Sendable {
