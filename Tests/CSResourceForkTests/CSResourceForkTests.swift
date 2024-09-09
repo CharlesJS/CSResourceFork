@@ -84,7 +84,10 @@ struct Options: OptionSet, CustomTestStringConvertible {
 }
 
 let fixtures = [
-    "basic"
+    "basic",
+    "empty",
+    "sillyballs",
+    "teachtext",
 ].map { Fixture(name: $0) }
 
 private let bundle: Bundle = {
