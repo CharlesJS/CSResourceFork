@@ -1,0 +1,33 @@
+{
+  "originHash" : "3b44b8c605ed577bbae80208dd6ac8ca01713f4c37e8a979a7faf0c1a935e26f",
+  "pins" : [
+    {
+      "identity" : "cserrors",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/CharlesJS/CSErrors",
+      "state" : {
+        "revision" : "a29b22f124d059030f6e65caacf3e02a67ca6dfb",
+        "version" : "1.2.9"
+      }
+    },
+    {
+      "identity" : "dataparser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/CharlesJS/DataParser",
+      "state" : {
+        "revision" : "cdcd2975b39d72da366759f1ee59d67a6b19a523",
+        "version" : "0.3.3"
+      }
+    },
+    {
+      "identity" : "hfstypeconversion",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/CharlesJS/HFSTypeConversion",
+      "state" : {
+        "revision" : "2793d4bc8acafda845714febd1bf687e832a31c0",
+        "version" : "0.1.1"
+      }
+    }
+  ],
+  "version" : 3
+}

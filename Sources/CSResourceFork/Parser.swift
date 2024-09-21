@@ -25,24 +25,35 @@ extension ResourceFork {
     internal struct Parser {
         private static let reservedHeaderSize = 0x100
 
-        private class Backing {
-            private let fileDescriptor: Int32
-            private let inResourceFork: Bool
-            
-            init(fileDescriptor: Int32, inResourceFork: Bool) {
-                self.fileDescriptor = fileDescriptor
-                self.inResourceFork = inResourceFork
-            }
-            
+        private enum Backing {
+            case file(fileDescriptor: Int32, inResourceFork: Bool)
+            case data(ContiguousArray<UInt8>)
+
             func data(in range: Range<Int>) throws -> ContiguousArray<UInt8> {
+                switch self {
+                case .data(let data):
+                    let startIndex = data.index(data.startIndex, offsetBy: range.lowerBound)
+                    let endIndex = data.index(startIndex, offsetBy: range.count)
+
+                    return ContiguousArray(data[startIndex..<endIndex])
+                case .file(fileDescriptor: let fd, inResourceFork: let inResourceFork):
+                    return try self.data(fileDescriptor: fd, inResourceFork: inResourceFork, range: range)
+                }
+            }
+
+            private func data(
+                fileDescriptor fd: Int32,
+                inResourceFork: Bool,
+                range: Range<Int>
+            ) throws -> ContiguousArray<UInt8> {
                 try ContiguousArray<UInt8>(unsafeUninitializedCapacity: range.count) { buf, count in
                     do {
-                        if self.inResourceFork {
+                        if inResourceFork {
                             if range.lowerBound > UInt32.max { throw errno(EINVAL) }
 
                             count = try callPOSIXFunction(expect: .nonNegative) {
                                 fgetxattr(
-                                    self.fileDescriptor,
+                                    fd,
                                     resForkName,
                                     buf.baseAddress,
                                     buf.count,
@@ -52,7 +63,7 @@ extension ResourceFork {
                             }
                         } else {
                             let offset = try callPOSIXFunction(expect: .nonNegative) {
-                                lseek(self.fileDescriptor, off_t(range.lowerBound), SEEK_SET)
+                                lseek(fd, off_t(range.lowerBound), SEEK_SET)
                             }
 
                             if offset != range.lowerBound {
@@ -60,7 +71,7 @@ extension ResourceFork {
                             }
 
                             count = try callPOSIXFunction(expect: .nonNegative) {
-                                read(self.fileDescriptor, buf.baseAddress, buf.count)
+                                read(fd, buf.baseAddress, buf.count)
                             }
                         }
                     } catch {
@@ -113,12 +124,25 @@ extension ResourceFork {
                 }
             }
         }
-        
+
+        internal static func parseResourceFork(data: some Collection<UInt8>) throws -> (
+            resourcesByType: [UInt32 : [Int16 : Resource]],
+            attributes: ResourceFork.Attributes
+        ) {
+            try self.parseResourceFork(backing: .data(ContiguousArray(data)))
+        }
+
         internal static func parseResourceFork(fileDescriptor: Int32, inResourceFork: Bool) throws -> (
             resourcesByType: [UInt32 : [Int16 : Resource]],
             attributes: ResourceFork.Attributes
         ) {
-            let backing = Backing(fileDescriptor: fileDescriptor, inResourceFork: inResourceFork)
+            try self.parseResourceFork(backing: .file(fileDescriptor: fileDescriptor, inResourceFork: inResourceFork))
+        }
+
+        private static func parseResourceFork(backing: Backing) throws -> (
+            resourcesByType: [UInt32 : [Int16 : Resource]],
+            attributes: ResourceFork.Attributes
+        ) {
             let header = try backing.data(in: 0..<16)
             
             if header.count < 16 {

@@ -72,6 +72,10 @@ public struct ResourceFork: Codable, Hashable, Sendable {
         self.attributes = parserResult.attributes
     }
 
+    public init(data: some Collection<UInt8>) throws {
+        (resourcesByType: self.resourcesByType, attributes: self.attributes) = try Parser.parseResourceFork(data: data)
+    }
+
     @available(macOS 11.0, iOS 14.0, macCatalyst 14.0, tvOS 14.0, watchOS 7.0, visionOS 1.0, *)
     public func write(to path: FilePath, inResourceFork: Bool = false) throws {
         let file = try FileDescriptor.open(

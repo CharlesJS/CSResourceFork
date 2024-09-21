@@ -62,19 +62,20 @@ struct Fixture: CustomTestStringConvertible {
 }
 
 struct Options: OptionSet, CustomTestStringConvertible {
-    static let testResourceFork = Options(rawValue: 0x01)
-    static let testRawStringPaths = Options(rawValue: 0x02)
-    static let testFileDescriptor = Options(rawValue: 0x04)
-    static let testRawFileDescriptor = Options(rawValue: 0x08)
-    static let testFileAlreadyExists = Options(rawValue: 0x10)
-    static let testRawTypeCodes = Options(rawValue: 0x20)
+    static let testRawData = Options(rawValue: 0x1)
+    static let testResourceFork = Options(rawValue: 0x02)
+    static let testRawStringPaths = Options(rawValue: 0x04)
+    static let testFileDescriptor = Options(rawValue: 0x08)
+    static let testRawFileDescriptor = Options(rawValue: 0x10)
+    static let testFileAlreadyExists = Options(rawValue: 0x20)
+    static let testRawTypeCodes = Options(rawValue: 0x40)
 
     let rawValue: Int
 
     var testDescription: String {
         [
-            self.contains(.testResourceFork) ? "rsrc" : "data",
-            self.contains(.testRawStringPaths) ? "raw" : nil,
+            self.contains(.testResourceFork) ? "rsrc" : self.contains(.testRawData) ? "raw" : "data",
+            self.contains(.testRawStringPaths) ? "raw paths" : nil,
             self.contains(.testFileDescriptor) ? "fd" : nil,
             self.contains(.testRawFileDescriptor) ? "raw fd" : nil,
             self.contains(.testRawTypeCodes) ? "raw types" : nil,
@@ -102,6 +103,7 @@ private let fixtureBundle = Bundle(
 
 @Test("Read Fixture", arguments: fixtures, [
     [],
+    .testRawData,
     .testRawStringPaths,
     .testFileDescriptor,
     [.testFileDescriptor, .testRawFileDescriptor],
@@ -113,7 +115,9 @@ private let fixtureBundle = Bundle(
 func testReadFixture(fixture: Fixture, options: Options) throws {
     let resourceFork: ResourceFork
 
-    if options.contains(.testResourceFork) {
+    if options.contains(.testRawData) {
+        resourceFork = try ResourceFork(data: Data(contentsOf: fixture.url))
+    } else if options.contains(.testResourceFork) {
         let tempURL = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
