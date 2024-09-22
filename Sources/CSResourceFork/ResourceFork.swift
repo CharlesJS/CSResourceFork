@@ -166,12 +166,12 @@ public struct ResourceFork: Codable, Hashable, Sendable {
     }
 
     public func resources(withType type: String) -> some Collection<Resource> {
-        guard let typeCode = type.hfsTypeCode else { return [Int16 : Resource]().values }
-        return self.resources(withTypeCode: typeCode) as! [Int16 : Resource].Values
+        guard let typeCode = type.hfsTypeCode else { return [] }
+        return self.resources(withTypeCode: typeCode) as! [Resource]
     }
     
     public func resources(withTypeCode typeCode: UInt32) -> some Collection<Resource> {
-        return (self.resourcesByType[typeCode] ?? [:]).values
+        (self.resourcesByType[typeCode] ?? [:]).values.sorted { $0.resourceID < $1.resourceID }
     }
 
     public func resource(withType type: String, resourceID: Int16) throws -> Resource {
