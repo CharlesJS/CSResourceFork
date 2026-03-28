@@ -1,8 +1,13 @@
 import CSErrors
 @testable import CSResourceFork
-import Foundation
-import System
+import Foundation // need the full Foundation for Bundle
 import Testing
+
+#if canImport(SystemPackage)
+import SystemPackage
+#else
+import System
+#endif
 
 struct Fixture: CustomTestStringConvertible {
     struct ExpectedResource {
@@ -12,7 +17,7 @@ struct Fixture: CustomTestStringConvertible {
         let data: Data
     }
 
-    private static let fixturesURL = fixtureBundle.url(forResource: "fixtures", withExtension: "")!
+    private static let fixturesURL = Bundle.module.url(forResource: "fixtures", withExtension: "")!
 
     let testDescription: String
     let url: URL
@@ -23,7 +28,8 @@ struct Fixture: CustomTestStringConvertible {
     init(name: String) {
         let fixtureURL = Self.fixturesURL.appending(path: name)
         let resourcesURL = fixtureURL.appending(path: "resources.rsrc")
-        let info = NSDictionary(contentsOf: fixtureURL.appending(path: "Info.plist")) as! [String : Any]
+        let infoData = try! Data(contentsOf: fixtureURL.appending(path: "Info.plist"))
+        let info = try! PropertyListSerialization.propertyList(from: infoData, format: nil) as! [String : Any]
 
         self.testDescription = name
         self.url = resourcesURL
@@ -91,16 +97,6 @@ let fixtures = [
     "teachtext",
 ].map { Fixture(name: $0) }
 
-private let bundle: Bundle = {
-    class BundleResolver: NSObject {}
-
-    return Bundle(for: BundleResolver.self)
-}()
-
-private let fixtureBundle = Bundle(
-    url: bundle.url(forResource: "CSResourceFork_CSResourceForkTests", withExtension: "bundle")!
-)!
-
 @Test("Read Fixture", arguments: fixtures, [
     [],
     .testRawData,
@@ -122,47 +118,46 @@ func testReadFixture(fixture: Fixture, options: Options) throws {
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
         try Data().write(to: tempURL, options: .atomic)
+#if canImport(Darwin)
         try Data(contentsOf: fixture.url).withUnsafeBytes { buf in
             _ = try callPOSIXFunction(expect: .zero) {
-                setxattr(tempURL.path, "com.apple.ResourceFork", buf.baseAddress, buf.count, 0, 0)
+                setxattr(tempURL.path, XATTR_RESOURCEFORK_NAME, buf.baseAddress, buf.count, 0, 0)
             }
         }
 
-        if options.contains(.testRawStringPaths) {
-            resourceFork = try ResourceFork(path: tempURL.path, inResourceFork: true)
-        } else if options.contains(.testFileDescriptor) {
-            let file = try FileDescriptor.open(FilePath(tempURL.path), .readOnly)
-            defer { try? file.close() }
-
-            if options.contains(.testRawFileDescriptor) {
-                resourceFork = try ResourceFork(fileDescriptor: file.rawValue, inResourceFork: true)
-            } else {
-                resourceFork = try ResourceFork(file: file, inResourceFork: true)
-            }
-        } else {
-            resourceFork = try ResourceFork(path: FilePath(tempURL.path), inResourceFork: true)
+        resourceFork = try readResourceFork(from: tempURL, options: options)
+#else
+        #expect(throws: ResourceFork.Error.featureUnsupported) {
+            _ = try readResourceFork(from: tempURL, options: options)
         }
+
+        return
+#endif
     } else {
-        if options.contains(.testRawStringPaths) {
-            resourceFork = try ResourceFork(path: fixture.url.path, inResourceFork: false)
-        } else if options.contains(.testFileDescriptor) {
-            let file = try FileDescriptor.open(FilePath(fixture.url.path), .readOnly)
-            defer { try? file.close() }
-
-            if options.contains(.testRawFileDescriptor) {
-                resourceFork = try ResourceFork(fileDescriptor: file.rawValue, inResourceFork: false)
-            } else {
-                resourceFork = try ResourceFork(file: file, inResourceFork: false)
-            }
-        } else {
-            resourceFork = try ResourceFork(path: FilePath(fixture.url.path), inResourceFork: false)
-        }
+        resourceFork = try readResourceFork(from: fixture.url, options: options)
     }
 
     #expect(try resourceFork.size == fixture.size)
-    #expect(try resourceFork.types.sorted() == fixture.expectedResources.keys.sorted())
+    #expect(resourceFork.types.sorted() == fixture.expectedResources.keys.sorted())
 
     try fixture.compare(to: resourceFork)
+}
+
+private func readResourceFork(from url: URL, options: Options) throws -> ResourceFork {
+    if options.contains(.testRawStringPaths) {
+        return try ResourceFork(path: url.path, inResourceFork: options.contains(.testResourceFork))
+    } else if options.contains(.testFileDescriptor) {
+        let file = try FileDescriptor.open(FilePath(url.path), .readOnly)
+        defer { try? file.close() }
+
+        if options.contains(.testRawFileDescriptor) {
+            return try ResourceFork(fileDescriptor: file.rawValue, inResourceFork: options.contains(.testResourceFork))
+        } else {
+            return try ResourceFork(file: file, inResourceFork: options.contains(.testResourceFork))
+        }
+    } else {
+        return try ResourceFork(path: FilePath(url.path), inResourceFork: options.contains(.testResourceFork))
+    }
 }
 
 @Test("Write Fixture", arguments: fixtures, [
@@ -202,10 +197,29 @@ func testWriteFixture(fixture: Fixture, options: Options) throws {
         try Data().write(to: tempURL, options: .atomic)
     }
 
+#if !canImport(Darwin)
+    if options.contains(.testResourceFork) {
+        #expect(throws: ResourceFork.Error.featureUnsupported) {
+            try testWrite(to: tempURL, resourceFork: resourceFork, options: options)
+        }
+
+        return
+    }
+#endif
+
+    try testWrite(to: tempURL, resourceFork: resourceFork, options: options)
+
+    let reloaded = try ResourceFork(path: FilePath(tempURL.path), inResourceFork: options.contains(.testResourceFork))
+
+    try fixture.compare(to: reloaded)
+    #expect(reloaded == resourceFork)
+}
+
+private func testWrite(to url: URL, resourceFork: ResourceFork, options: Options) throws {
     if options.contains(.testRawStringPaths) {
-        try resourceFork.write(toPath: tempURL.path, inResourceFork: options.contains(.testResourceFork))
+        try resourceFork.write(toPath: url.path, inResourceFork: options.contains(.testResourceFork))
     } else if options.contains(.testFileDescriptor) {
-        let file = try FileDescriptor.open(FilePath(tempURL.path), .writeOnly)
+        let file = try FileDescriptor.open(FilePath(url.path), .writeOnly)
         defer { try? file.close() }
 
         if options.contains(.testRawFileDescriptor) {
@@ -214,13 +228,8 @@ func testWriteFixture(fixture: Fixture, options: Options) throws {
             try resourceFork.write(to: file, inResourceFork: options.contains(.testResourceFork))
         }
     } else {
-        try resourceFork.write(to: FilePath(tempURL.path), inResourceFork: options.contains(.testResourceFork))
+        try resourceFork.write(to: FilePath(url.path), inResourceFork: options.contains(.testResourceFork))
     }
-
-    let reloaded = try ResourceFork(path: FilePath(tempURL.path), inResourceFork: options.contains(.testResourceFork))
-
-    try fixture.compare(to: reloaded)
-    #expect(reloaded == resourceFork)
 }
 
 @Test("Write from Scratch", arguments: fixtures, [
@@ -271,20 +280,17 @@ func testWriteFromScratch(fixture: Fixture, options: Options) throws {
         try Data().write(to: tempURL, options: .atomic)
     }
 
-    if options.contains(.testRawStringPaths) {
-        try resourceFork.write(toPath: tempURL.path, inResourceFork: options.contains(.testResourceFork))
-    } else if options.contains(.testFileDescriptor) {
-        let file = try FileDescriptor.open(FilePath(tempURL.path), .writeOnly)
-        defer { try? file.close() }
-
-        if options.contains(.testRawFileDescriptor) {
-            try resourceFork.write(toFileDescriptor: file.rawValue, inResourceFork: options.contains(.testResourceFork))
-        } else {
-            try resourceFork.write(to: file, inResourceFork: options.contains(.testResourceFork))
+#if !canImport(Darwin)
+    if options.contains(.testResourceFork) {
+        #expect(throws: ResourceFork.Error.featureUnsupported) {
+            try testWrite(to: tempURL, resourceFork: resourceFork, options: options)
         }
-    } else {
-        try resourceFork.write(to: FilePath(tempURL.path), inResourceFork: options.contains(.testResourceFork))
+
+        return
     }
+#endif
+
+    try testWrite(to: tempURL, resourceFork: resourceFork, options: options)
 
     let reloaded = try ResourceFork(path: FilePath(tempURL.path), inResourceFork: options.contains(.testResourceFork))
 

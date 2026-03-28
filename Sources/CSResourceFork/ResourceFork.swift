@@ -5,10 +5,19 @@
 //
 
 import CSErrors
-import System
 
 #if canImport(Darwin)
 import Darwin
+private let posixWrite = Darwin.write
+#elseif canImport(Glibc)
+import Glibc
+private let posixWrite = Glibc.write
+#endif
+
+#if canImport(SystemPackage)
+import SystemPackage
+#else
+import System
 #endif
 
 public struct ResourceFork: Codable, Hashable, Sendable {
@@ -49,13 +58,15 @@ public struct ResourceFork: Codable, Hashable, Sendable {
     }
 
     public init(path: String, inResourceFork: Bool = false) throws {
+#if canImport(Darwin)
         guard #available(macOS 11.0, iOS 14.0, macCatalyst 14.0, tvOS 14.0, watchOS 7.0, visionOS 1.0, *) else {
-            let fd = try callPOSIXFunction(expect: .nonNegative, path: path) { open(path, O_RDONLY) }
+            let fd = try callPOSIXFunction(expect: .nonNegative, path: path) { Darwin.open(path, O_RDONLY) }
             defer { close(fd) }
 
             try self.init(fileDescriptor: fd, inResourceFork: inResourceFork)
             return
         }
+#endif
 
         try self.init(path: FilePath(path), inResourceFork: inResourceFork)
     }
@@ -89,13 +100,15 @@ public struct ResourceFork: Codable, Hashable, Sendable {
     }
 
     public func write(toPath path: String, inResourceFork: Bool = false) throws {
+#if canImport(Darwin)
         guard #available(macOS 11.0, iOS 14.0, macCatalyst 14.0, tvOS 14.0, watchOS 7.0, visionOS 1.0, *) else {
-            let fd = try callPOSIXFunction(expect: .nonNegative, path: path) { open(path, O_CREAT | O_WRONLY, 0o644) }
+            let fd = try callPOSIXFunction(expect: .nonNegative, path: path) { Darwin.open(path, O_CREAT | O_WRONLY, 0o644) }
             defer { close(fd) }
 
             try self.write(toFileDescriptor: fd, inResourceFork: inResourceFork)
             return
         }
+#endif
 
         try self.write(to: FilePath(path), inResourceFork: inResourceFork)
     }
@@ -141,7 +154,7 @@ public struct ResourceFork: Codable, Hashable, Sendable {
         try callPOSIXFunction(expect: .zero) { lseek(fileDescriptor, 0, SEEK_SET) }
 
         let bytesWritten = try data.withUnsafeBytes { buf in
-            try callPOSIXFunction(expect: .nonNegative) { Darwin.write(fileDescriptor, buf.baseAddress, buf.count) }
+            try callPOSIXFunction(expect: .nonNegative) { posixWrite(fileDescriptor, buf.baseAddress, buf.count) }
         }
 
         if bytesWritten != data.count {
@@ -152,6 +165,7 @@ public struct ResourceFork: Codable, Hashable, Sendable {
     }
 
     private func writeResourceFork(fileDescriptor: Int32) throws {
+#if canImport(Darwin)
         fremovexattr(fileDescriptor, XATTR_RESOURCEFORK_NAME, 0)
 
         try self.forkData().withUnsafeBytes { buf in
@@ -159,6 +173,9 @@ public struct ResourceFork: Codable, Hashable, Sendable {
                 fsetxattr(fileDescriptor, XATTR_RESOURCEFORK_NAME, buf.baseAddress, buf.count, 0, XATTR_CREATE)
             }
         }
+#else
+        throw Error.featureUnsupported
+#endif
     }
 
     private func forkData() throws -> ContiguousArray<UInt8> {

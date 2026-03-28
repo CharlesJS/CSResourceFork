@@ -1,6 +1,11 @@
 #!/usr/bin/env swift
 
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#else
 import Foundation
+#endif
+
 import RegexBuilder
 
 let name = CommandLine.arguments[1]

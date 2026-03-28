@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 
 import PackageDescription
 
@@ -19,9 +19,9 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/CharlesJS/CSErrors", from: "1.2.9"),
-        .package(url: "https://github.com/CharlesJS/DataParser", from: "0.3.3"),
-        .package(url: "https://github.com/CharlesJS/HFSTypeConversion", from: "0.1.1"),
+        .package(url: "https://github.com/CharlesJS/CSErrors", from: "2.1.0"),
+        .package(url: "https://github.com/CharlesJS/DataParser", from: "0.6.0"),
+        .package(url: "https://github.com/CharlesJS/HFSTypeConversion", from: "0.1.4"),
     ],
     targets: [
         .target(
