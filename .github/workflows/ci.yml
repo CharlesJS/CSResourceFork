@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  unit_tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        include: 
+          - os: macos-latest
+          - os: macos-15-intel
+          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
+    container:
+      image: ${{ matrix.image }}
+
+    steps:
+    - uses: actions/checkout@v6
+    - uses: SwiftyLab/setup-swift@latest
+      if: matrix.image == null
+    - name: Build
+      run: swift build --build-tests --enable-code-coverage --vv
+    - name: Run tests
+      run: |
+        mkdir -p attachments
+        echo "test" > attachments/test.txt
+        swift test --vv --enable-code-coverage --xunit-output testresults.xml --attachments-path attachments
+    - name: Collect artifacts
+      if: always()
+      run: |
+        mkdir -p artifacts
+        cp -R attachments artifacts/
+        cp testresults*.xml artifacts/ 2>/dev/null || true
+        find .build -name codecov | xargs -I{} cp -R {} artifacts/ 2>/dev/null || true
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v7
+      if: always()
+      with:
+        name: test-results-${{ matrix.os }}
+        path: artifacts/
+

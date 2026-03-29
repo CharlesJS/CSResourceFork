@@ -9,14 +9,17 @@
 import CSErrors
 import DataParser
 import HFSTypeConversion
-import System
 
 #if canImport(Darwin)
 import Darwin
-let resForkName = XATTR_RESOURCEFORK_NAME
 #elseif canImport(Glibc)
 import Glibc
-let resForkName = "com.apple.ResourceFork"
+#endif
+
+#if canImport(SystemPackage)
+import SystemPackage
+#else
+import System
 #endif
 
 extension ResourceFork {
@@ -49,18 +52,22 @@ extension ResourceFork {
                 try ContiguousArray<UInt8>(unsafeUninitializedCapacity: range.count) { buf, count in
                     do {
                         if inResourceFork {
+#if canImport(Darwin)
                             if range.lowerBound > UInt32.max { throw errno(EINVAL) }
 
                             count = try callPOSIXFunction(expect: .nonNegative) {
                                 fgetxattr(
                                     fd,
-                                    resForkName,
+                                    XATTR_RESOURCEFORK_NAME,
                                     buf.baseAddress,
                                     buf.count,
                                     UInt32(range.lowerBound),
                                     0
                                 )
                             }
+#else
+                            throw Error.featureUnsupported
+#endif
                         } else {
                             let offset = try callPOSIXFunction(expect: .nonNegative) {
                                 lseek(fd, off_t(range.lowerBound), SEEK_SET)

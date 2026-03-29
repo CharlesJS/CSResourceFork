@@ -14,5 +14,6 @@ extension ResourceFork {
         case typeListTooLong
         case nameListTooLong
         case tooManyTypes
+        case featureUnsupported
     }
 }
