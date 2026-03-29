@@ -18,9 +18,18 @@ let package = Package(
             targets: ["CSResourceFork"]
         ),
     ],
+    traits: [
+        "Foundation"
+    ],
     dependencies: [
-        .package(url: "https://github.com/CharlesJS/CSErrors", from: "2.1.0"),
-        .package(url: "https://github.com/CharlesJS/DataParser", from: "0.6.0"),
+        .package(url: "https://github.com/CharlesJS/CSErrors", from: "2.1.0", traits: [
+            .defaults,
+            .trait(name: "Foundation", condition: .when(traits: ["Foundation"]))
+        ]),
+        .package(url: "https://github.com/CharlesJS/DataParser", from: "0.6.0", traits: [
+            .defaults,
+            .trait(name: "Foundation", condition: .when(traits: ["Foundation"]))
+        ]),
         .package(url: "https://github.com/CharlesJS/HFSTypeConversion", from: "0.1.4"),
     ],
     targets: [
